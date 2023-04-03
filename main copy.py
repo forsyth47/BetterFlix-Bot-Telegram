@@ -1,6 +1,5 @@
 #pip install python-telegram-bot==13.15 flask python-dotenv
 #==================================IMPORTS & API==================================
-import os
 import inspect
 import json
 import subprocess
@@ -28,18 +27,11 @@ def howtouse(update, context):
   browserbutton = InlineKeyboardButton('Browser', callback_data="4")
   replymarkup = InlineKeyboardMarkup([[linuxbutton, windowsbutton],[androidbutton, browserbutton]])
   context.bot.send_message(update.message.chat_id, "Select your device: ", ReplyMarkup=replymarkup)
-
+  
 
 #==================================COMMANDS==================================
 
 def start_command(update, context):
-  cache_dir = os.path.join(".cache", "Betterflix")
-  if not os.path.exists(cache_dir):
-    os.makedirs(cache_dir)
-  data_file = os.path.join(cache_dir, f"{update.message.chat_id}.json")
-  if not os.path.exists(data_file):
-    with open(data_file, "w") as f:
-      json.dump({"FirstName":update.message.chat.first_name, "chat_id":update.message.chat_id, "lastseenurl": "https://api.haikei.xyz/movies/flixhq/watch?episodeId=1166671&mediaId=532&server=upcloud", "server":"upcloud", "sub_lang": "English"}, f, indent=4)
   update.message.reply_text("Enter Movie/TVSeries name: ")
 
 def help_command(update, context):
@@ -49,7 +41,7 @@ def mpv(update, context):
   context.bot.send_message(chat_id=update.message.chat_id, text="*MPV\\-Android is a great media player that offers many features for users\\. It has a simple\\, intuitive interface and supports a wide range of audio and video formats \\(including m3u8 files that this bot provides\\)\\. It also has a powerful video engine that allows for smooth playback of even high\\-resolution videos\\. Additionally\\, it has a number of advanced features such as hardware acceleration\\, subtitle support\\, and a customizable user interface\\, and what\\'s more\\? It\\'s Open\\-source\\, meaning it is free and publicly available for anyone to use\\. Open source software is usually more secure than other software since it is constantly being reviewed and improved by many people\\. All of these features make MPV\\-Android a great choice for anyone looking for a reliable and feature\\-rich media player that supports M3U8 links\\.*", parse_mode="MarkdownV2")
   message = context.bot.send_message(chat_id=update.message.chat_id, text="`\\<UPLOADING FILE\\.\\.\\.\\>`", parse_mode="MarkdownV2")
   context.bot.send_document(chat_id=update.message.chat_id, document=urllib.request.urlopen('https://f-droid.org/repo/is.xyz.mpv_29.apk'), filename='mpv_29.apk')
-  context.bot.delete_message(chat_id=update.message.chat_id, message_id=message.message_id)
+  context.bot.delete_message(chat_id=update.message.chat_id, message_id=upsendmessage.message_id)
   
 def command(update, context):
   chat_id = update.message.chat_id
@@ -73,23 +65,29 @@ def search(update, context):
   global messagesearch
   global resultsearch
   global requestsearch
-  global userinfo
+
+  ##===================logging===================
   logs = ((datetime.now(pytz.timezone("Asia/Kolkata"))).strftime("[%d/%m/%Y %H:%M:%S] "), f'User ({update.message.chat.first_name}, @{update.message.chat.username}, {update.message.chat.id}) says: "{str(update.message.text).lower()}" in: {update.message.chat.type}')
   print(logs)
   with open("log.txt", "a+") as fileout:
     fileout.write(f"{logs}\n")
+  ##===================logging-end===================
   ufid = inspect.stack()[0][3]
   chat_id = update.message.chat_id
   requestsearch=update.message
-  with open(os.path.join(".cache", "Betterflix", f"{chat_id}.json"), "r") as f:
-      userinfo=json.load(f)
   urlsearch = apiurl + "/movies/flixhq/" + str(update.message.text).lower()
   responsesearch = requests.get(urlsearch, params={"page": 1})
   datasearch = responsesearch.json()
+  #print(json.dumps(datasearch, indent=4))
   resultsearch = datasearch['results']
-  keyboard = [[(InlineKeyboardButton(f"{i + 1}. {tempsearch['title']}", callback_data=f"{i + 1}"))]for i, tempsearch in enumerate(resultsearch)] + [[InlineKeyboardButton(">>> EXIT <<<", callback_data="exit")]]
+  ##===================Making-InlineKeyboardButton-with-Search-Results===================
+  keyboard = []
+  for i, tempsearch in enumerate(resultsearch):
+    keyboard.append([InlineKeyboardButton(f"{i + 1}. {tempsearch['title']}", callback_data=f"{i + 1}")])
+  keyboard.append([InlineKeyboardButton(">>> EXIT <<<", callback_data="exit")])
   messagesearch = context.bot.send_message(chat_id, text="Select the desired title:", reply_markup=InlineKeyboardMarkup(keyboard))
 
+  ##===================Making-InlineKeyboardButton-with-Search-Results-End===================
 
 #==================================SEARCH-MOVIE-SHOW-END==================================
 
@@ -119,19 +117,29 @@ def cep(update, context):
 #==================================Choosing-EPisode-END==================================
 
 
+#==================================Choosing-SERVER==================================
+
+def cserver(update, context):
+  global ufid
+  global datacserver
+  global messagecserver
+  ufid = inspect.stack()[0][3]
+  datacserver = (requests.get(apiurl + "/movies/flixhq/servers", params={"episodeId": idcep, "mediaId": idsearch})).json()
+  keyboard = [[InlineKeyboardButton(f"{i + 1}. {tempcserver['name']}", callback_data=f"{i + 1}")]for i, tempcserver in enumerate(datacserver)] + [[InlineKeyboardButton(">>> EXIT <<<", callback_data="exit")]]
+  messagecserver=context.bot.send_message(chat_id, text="Select the desired Server: ", reply_markup=InlineKeyboardMarkup(keyboard))
+
+#==================================Choosing-SERVER==================================
+
+
 #==================================grabbin-the-LINK(s)==================================
 
 def link(update, context):
-  data = requests.get(apiurl + "/movies/flixhq/watch", params={"episodeId": idcep, "mediaId": idsearch, "server": "upcloud"}).json()
+  data = requests.get(apiurl + "/movies/flixhq/watch", params={"episodeId": idcep, "mediaId": idsearch, "server": idcserver}).json()
   sources = data['sources']
   msglink = [[InlineKeyboardButton(f"{s.get('quality', 'unknown')}p", url=s.get('url', ''))] for s in sources]
-  quotejson=requests.get('https://api.quotable.io/random').json()
-  context.bot.send_message(chat_id, text=f"<b>{quotejson['content']}</b>\n~<code>{quotejson['author']}</code>", reply_markup=InlineKeyboardMarkup(msglink), parse_mode="html")
+  context.bot.send_message(chat_id, text=f"<b>{(requests.get('https://api.quotable.io/random').json())['content']}</b>\n~<code>{(requests.get('https://api.quotable.io/random').json())['author']}</code>", reply_markup=InlineKeyboardMarkup(msglink), parse_mode="html")
   english_subtitles = '\n'.join([f"{s['lang']}: {s['url']}" for s in data['subtitles'] if s['lang'].startswith('English') or s['lang'].startswith('Default')])
   context.bot.send_message(chat_id, text=f"Subtitles links to add: \n{english_subtitles}")
-
-  with open(os.path.join(cache_dir, f"{chat_id}.json"), "w") as f:
-    json.dump({"lastseenurl": apiurl + f"/movies/flixhq/watch?episodeId={idcep}&mediaId={movieid}&server={selected_url}"}, f, indent=4)
 
 #==================================SEARCH-MOVIE-SHOW-END==================================
 
@@ -157,6 +165,10 @@ def Button(update, context):
   elif ufid == "cep":
     idcep = datacep['episodes'][buttoncallback - 1]['id']
     context.bot.delete_message(chat_id, message_id=messagecep.message_id)
+    cserver(update, context)
+  elif ufid == "cserver":
+    idcserver = datacserver[buttoncallback - 1]["name"]
+    context.bot.delete_message(chat_id, message_id=messagecserver.message_id)
     link(update, context)
   elif ufid == "howtouse":
     if data == 1:

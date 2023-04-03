@@ -1,5 +1,7 @@
-import os
+#import os
 
-my_secret_poem = os.environ['botkey']
-token = my_secret_poem
+admin_username = "UR-TG-USERNAME"
+token = "TG-BOT-TOKEN-HERE"
+
+#token = os.environ['botkey']
 #token = (f'"{my_secret_poem}"')
