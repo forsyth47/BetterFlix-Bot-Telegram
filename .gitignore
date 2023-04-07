@@ -1,2 +1,5 @@
 __pycache__
 .cache
+keys.py
+log.txt
+webserver.py
