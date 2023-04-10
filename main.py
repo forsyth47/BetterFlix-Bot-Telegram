@@ -1,4 +1,4 @@
-#pip install python-telegram-bot==13.15 flask python-dotenv
+#pip install python-telegram-bot==13.15 flask pytz
 #==================================IMPORTS & API==================================
 import os
 import inspect
@@ -13,10 +13,10 @@ import keys
 from telegram import *
 from telegram.ext import *
 
-#apiurl = "https://api.consumet.org"
+apiurl = "https://api.consumet.org"
 #apiurl = "https://api.animxeast.eu.org"
 #apiurl = "https://c.delusionz.xyz"
-apiurl = "https://api.haikei.xyz"
+#apiurl = "https://api.haikei.xyz"
 #==================================IMPORTS & API END==================================
 
 def howtouse(update, context):
@@ -39,7 +39,7 @@ def start_command(update, context):
   data_file = os.path.join(cache_dir, f"{update.message.chat_id}.json")
   if not os.path.exists(data_file):
     with open(data_file, "w") as f:
-      json.dump({"FirstName":update.message.chat.first_name, "chat_id":update.message.chat_id, "lastseenurl": "https://api.haikei.xyz/movies/flixhq/watch?episodeId=1166671&mediaId=532&server=upcloud", "server":"upcloud", "sub_lang": "English"}, f, indent=4)
+      json.dump({"FirstName":update.message.chat.first_name, "chat_id":update.message.chat_id, "lastseenurl": "https://api.haikei.xyz/movies/flixhq/watch?episodeId=30784&mediaId=tv/watch-adventure-time-39381&server=upcloud", "server":"upcloud", "sub_lang": "English", "lastseenid": "30784", "lastseeneptitle": "Eps 24: What Have You Done?"}, f, indent=4)
   update.message.reply_text("Enter Movie/TVSeries name: ")
 
 def help_command(update, context):
@@ -76,27 +76,59 @@ def next(update, context):
   chat_id=update.message.chat_id
   with open(os.path.join(".cache", "Betterflix", f"{chat_id}.json"), "r") as f:
       userinfo=json.load(f)
-  data = requests.get(apiurl + "/movies/flixhq/info?id=" + userinfo['lastseenurl'].split('&')[1][8:]).json()
-  context.bot.send_photo(chat_id, data['cover'], caption=f'<b>Title: </b><code>{data["title"]}</code> \n<b>Data type: </b>{data["type"]} \n<b>Duration: </b>{data["duration"]}', parse_mode="html")
-  data = requests.get(userinfo['lastseenurl']).json()['sources']
-  msglink = [[InlineKeyboardButton(f"{s.get('quality', 'unknown')}p", url=s.get('url', ''))] for s in sources]
-  context.bot.send_message(chat_id, reply_markup=InlineKeyboardMarkup(msglink))
-  english_subtitles = '\n'.join([f"{s['lang']}: {s['url']}" for s in data['subtitles'] if s['lang'].startswith('English')]) #else context.bot.send_message(chat_id, text="     <code>No Subtitles found!</code>", parse_mode="html")
-  context.bot.send_message(chat_id, text=f"Subtitles links to add: \n{english_subtitles}")
-
-def continuewatchingfo=json.load(f)
-
-continuewatchingcontinuewatchingcontinuewatching(update, context):
+  data = requests.get(apiurl + "/movies/flixhq/info?id=" + userinfo["lastseenurl"].split('&')[1][8:]).json()
+  for i, episode in enumerate(data["episodes"]):
+    if episode["id"] == str(userinfo["lastseenid"]):
+      if i + 1 < len(data["episodes"]):
+        next_episode = data["episodes"][i+1]
+        newurl = apiurl + "/movies/flixhq/watch?episodeId=" + next_episode["id"] + "&" + userinfo['lastseenurl'].split('&')[1]
+        context.bot.send_photo(chat_id, data['cover'], caption=f'<b>Title: </b><code>{data["title"]}</code> \n<b>Data type: </b>{data["type"]} \n<b>Duration: </b>{data["duration"]} \n<b>Episode: </b>{next_episode["title"]}', parse_mode="html")
+        datalink = requests.get(newurl).json()
+        sources = datalink['sources']
+        msglink = [[InlineKeyboardButton(f"{s.get('quality', 'unknown')}p", url=s.get('url', ''))] for s in sources]
+        context.bot.send_message(chat_id, text="<code><b>Spread Love 💛</b></code>", reply_markup=InlineKeyboardMarkup(msglink), parse_mode="html")
+        english_subtitles = '\n'.join([f"{s['lang']}: {s['url']}" for s in datalink['subtitles'] if s['lang'].startswith('English')])
+        if len(english_subtitles) == 0:
+          pass
+        else:
+          context.bot.send_message(chat_id, text=f"Subtitles links to add: \n{english_subtitles}")
+        with open(os.path.join(os.path.join(".cache", "Betterflix"), f"{chat_id}.json"), "r+") as f:
+          writejson = json.load(f)
+          writejson["lastseenurl"] = newurl
+          writejson["lastseenid"] = next_episode["id"]
+          writejson["lastseeneptitle"] = next_episode["title"]
+          f.seek(0)
+          json.dump(writejson, f, indent=4)
+          f.truncate()
+      
+        logs = ((datetime.now(pytz.timezone("Asia/Kolkata"))).strftime("[%d/%m/%Y %H:%M:%S] "), f'User ({update.message.chat.first_name}, @{update.message.chat.username}, {update.message.chat.id}) Plays next of: "{data["title"]}, Episode: {next_episode["title"]}"')
+        print(logs)
+        with open("log.txt", "a+") as fileout:
+          fileout.write(f"{logs}\n")
+          
+      else:
+        context.bot.send_message(chat_id, "No Episodes Found!")
+        break
+  
+def continuewatching(update, context):
   chat_id=update.message.chat_id
   with open(os.path.join(".cache", "Betterflix", f"{chat_id}.json"), "r") as f:
       userinfo=json.load(f)
   data = requests.get(apiurl + "/movies/flixhq/info?id=" + userinfo['lastseenurl'].split('&')[1][8:]).json()
-  context.bot.send_photo(chat_id, data['cover'], caption=f'<b>Title: </b><code>{data["title"]}</code> \n<b>Data type: </b>{data["type"]} \n<b>Duration: </b>{data["duration"]}', parse_mode="html")
-  data = requests.get(userinfo['lastseenurl']).json()['sources']
+  context.bot.send_photo(chat_id, data['cover'], caption=f'<b>Title: </b><code>{data["title"]}</code> \n<b>Data type: </b>{data["type"]} \n<b>Duration: </b>{data["duration"]} \n<b>Episode: </b>{userinfo["lastseeneptitle"]}', parse_mode="html")
+  datalink = requests.get(userinfo['lastseenurl']).json()
+  sources = datalink['sources']
   msglink = [[InlineKeyboardButton(f"{s.get('quality', 'unknown')}p", url=s.get('url', ''))] for s in sources]
-  context.bot.send_message(chat_id, reply_markup=InlineKeyboardMarkup(msglink))
-  english_subtitles = '\n'.join([f"{s['lang']}: {s['url']}" for s in data['subtitles'] if s['lang'].startswith('English')]) #else context.bot.send_message(chat_id, text="     <code>No Subtitles found!</code>", parse_mode="html")
-  context.bot.send_message(chat_id, text=f"Subtitles links to add: \n{english_subtitles}")
+  context.bot.send_message(chat_id, text="<code><b>Spread Love 💛</b></code>", reply_markup=InlineKeyboardMarkup(msglink), parse_mode="html")
+  english_subtitles = '\n'.join([f"{s['lang']}: {s['url']}" for s in datalink['subtitles'] if s['lang'].startswith('English')])
+  if len(english_subtitles) == 0:
+    pass
+  else:
+    context.bot.send_message(chat_id, text=f"Subtitles links to add: \n{english_subtitles}")
+  logs = ((datetime.now(pytz.timezone("Asia/Kolkata"))).strftime("[%d/%m/%Y %H:%M:%S] "), f'User ({update.message.chat.first_name}, @{update.message.chat.username}, {update.message.chat.id}) Continues: "{data["title"]}, Episode: {userinfo["lastseeneptitle"]}"')
+  print(logs)
+  with open("log.txt", "a+") as fileout:
+    fileout.write(f"{logs}\n")
 #==================================COMMANDS-END==================================
 
 
@@ -109,10 +141,17 @@ def search(update, context):
   global resultsearch
   global requestsearch
   global userinfo
-  logs = (((datetime.now(pytz.timezone("Asia/Kolkata"))).strftime([%d/%m/%Y %H:%M:%S]), f'User ({update.message.chat.first_name}, @{update.message.chat.username}, {update.message.chat.id}) says: "{str(update.message.text).lower()}"'))
+  logs = ((datetime.now(pytz.timezone("Asia/Kolkata"))).strftime("[%d/%m/%Y %H:%M:%S] "), f'User ({update.message.chat.first_name}, @{update.message.chat.username}, {update.message.chat.id}) says: "{str(update.message.text).lower()}"')
   print(logs)
   with open("log.txt", "a+") as fileout:
     fileout.write(f"{logs}\n")
+  cache_dir = os.path.join(".cache", "Betterflix")
+  if not os.path.exists(cache_dir):
+    os.makedirs(cache_dir)
+  data_file = os.path.join(cache_dir, f"{update.message.chat_id}.json")
+  if not os.path.exists(data_file):
+    with open(data_file, "w") as f:
+      json.dump({"FirstName":update.message.chat.first_name, "chat_id":update.message.chat_id, "lastseenurl": "https://api.haikei.xyz/movies/flixhq/watch?episodeId=30784&mediaId=tv/watch-adventure-time-39381&server=upcloud", "server":"upcloud", "sub_lang": "English", "lastseenid": "30784", "lastseeneptitle": "Eps 24: What Have You Done?"}, f, indent=4)
   ufid = inspect.stack()[0][3]
   chat_id = update.message.chat_id
   requestsearch=update.message
@@ -122,7 +161,7 @@ def search(update, context):
   responsesearch = requests.get(urlsearch, params={"page": 1})
   datasearch = responsesearch.json()
   resultsearch = datasearch['results']
-  keyboard = [[InlineKeyboardButton(f"{i + 1}. {tempsearch['title']}", callback_data=f"{i + 1}")]for i, tempsearch in enumerate(resultsearch)] + [[InlineKeyboardButton(">>> EXIT <<<", callback_data="exit")]]
+  keyboard = [[InlineKeyboardButton(f"{i + 1}. {tempsearch['title']}", callback_data=f"{i + 1}")]for i, tempsearch in enumerate(resultsearch)] + [[InlineKeyboardButton("> EXIT", callback_data="exit")]]
   messagesearch = context.bot.send_message(chat_id, text="Select the desired title:", reply_markup=InlineKeyboardMarkup(keyboard))
 
 
@@ -142,13 +181,11 @@ def cep(update, context):
     responsecep = requests.get(apiurl + "/movies/flixhq/info?id=movie/" + idsearch[6:])
   dataid = datacep = responsecep.json()
   #print(json.dumps(dataid, indent=4))
-  #context.bot.send_photo(chat_id, dataid["cover"], caption=f'<b><i>Title: </i></b><code>{dataid["title"]}</code> \n<b><i>Plot summary: </i></b>{dataid["description"][9:]} \n<b><i>Data type: </i></b>{dataid["type"]} \n<b><i>Released on: </i></b>{dataid["releaseDate"]} \n<b><i>Production: </i></b><code>{dataid["production"]}</code> \n<b><i>Duration: </i></b>{dataid["duration"]} \n<b><i>IMDb Rating: </i></b>{dataid["rating"]}', parse_mode="html")
   context.bot.send_photo(chat_id, dataid["cover"], caption=f'<b>Title: </b><code>{dataid["title"]}</code> \n<b>Plot summary: </b>{dataid["description"][9:]} \n<b>Data type: </b>{dataid["type"]} \n<b>Released on: </b>{dataid["releaseDate"]} \n<b>Production: </b><code>{dataid["production"]}</code> \n<b>Duration: </b>{dataid["duration"]} \n<b>IMDb Rating: </b>{dataid["rating"]}', parse_mode="html")
-  #context.bot.send_photo(chat_id, dataid["cover"], caption=f'<b>Title: </b><code>{dataid["title"]}</code> \n<b>Plot summary: </b><code>{dataid["description"][9:]}</code> \n<b>Data type: </b><code>{dataid["type"]}</code> \n<b>Released on: </b><code>{dataid["releaseDate"]}</code> \n<b>Production: </b><code>{dataid["production"]}</code> \n<b>Duration: </b><code>{dataid["duration"]}</code> \n<b>IMDb Rating: </b><code>{dataid["rating"]}</code>', parse_mode="html")
   keyboard = []
   for i, tempcep in enumerate(datacep['episodes']):
     keyboard.append([InlineKeyboardButton(f"{i + 1}. {tempcep['title']}", callback_data=f"{i + 1}")])
-  keyboard.append([InlineKeyboardButton(">>> EXIT <<<", callback_data="exit")])
+  keyboard.append([InlineKeyboardButton("> EXIT", callback_data="exit")])
   messagecep = context.bot.send_message(chat_id, text="Select the desired episode: ", reply_markup=InlineKeyboardMarkup(keyboard))
 
 #==================================Choosing-EPisode-END==================================
@@ -158,20 +195,26 @@ def cep(update, context):
 
 def link(update, context):
   data = requests.get(apiurl + "/movies/flixhq/watch", params={"episodeId": idcep, "mediaId": idsearch, "server": userinfo["server"]}).json()
+  #print(json.dumps(data, indent=4))
   sources = data['sources']
   msglink = [[InlineKeyboardButton(f"{s.get('quality', 'unknown')}p", url=s.get('url', ''))] for s in sources]
   quotejson=requests.get('https://api.quotable.io/random').json()
   context.bot.send_message(chat_id, text=f"<b>{quotejson['content']}</b>\n~<code>{quotejson['author']}</code>", reply_markup=InlineKeyboardMarkup(msglink), parse_mode="html")
-  english_subtitles = '\n'.join([f"{s['lang']}: {s['url']}" for s in data['subtitles'] if s['lang'].startswith('English')]) #else context.bot.send_message(chat_id, text="     <code>No Subtitles found!</code>", parse_mode="html")
-  context.bot.send_message(chat_id, text=f"Subtitles links to add: \n{english_subtitles}")
+  english_subtitles = '\n'.join([f"{s['lang']}: {s['url']}" for s in data['subtitles'] if s['lang'].startswith('English')])
+  if len(english_subtitles) == 0:
+    pass
+  else:
+    context.bot.send_message(chat_id, text=f"Subtitles links to add: \n{english_subtitles}")
 
   with open(os.path.join(os.path.join(".cache", "Betterflix"), f"{chat_id}.json"), "r+") as f:
-    lastseenurl = apiurl + f"/movies/flixhq/watch?episodeId={idcep}&mediaId={idsearch}&server={userinfo['server']}"
     writejson = json.load(f)
-    writejson["lastseenurl"] = lastseenurl
+    writejson["lastseenurl"] = apiurl + f"/movies/flixhq/watch?episodeId={idcep}&mediaId={idsearch}&server={userinfo['server']}"
+    writejson["lastseenid"] = idcep
+    writejson["lastseeneptitle"] = eptitlecep
     f.seek(0)
     json.dump(writejson, f, indent=4)
-#    f.truncate()
+    f.truncate()
+
 
 #==================================SEARCH-MOVIE-SHOW-END==================================
 
@@ -181,6 +224,7 @@ def Button(update, context):
   global resultsearch
   global idsearch
   global idcep
+  global eptitlecep
   global idcserver
   data = update.callback_query.data
   if data == "exit":
@@ -196,6 +240,7 @@ def Button(update, context):
     cep(update, context)
   elif ufid == "cep":
     idcep = datacep['episodes'][buttoncallback - 1]['id']
+    eptitlecep = datacep['episodes'][buttoncallback - 1]['title']
     context.bot.delete_message(chat_id, message_id=messagecep.message_id)
     link(update, context)
   elif ufid=="changeserver":
@@ -212,7 +257,6 @@ def Button(update, context):
           f.seek(0)
           json.dump(data, f, indent=4)
           f.truncate()
-
     context.bot.delete_message(chat_id, message_id=messagechangeserver.message_id)
     context.bot.send_message(chat_id, "Preference have been saved!")
   elif ufid == "howtouse":

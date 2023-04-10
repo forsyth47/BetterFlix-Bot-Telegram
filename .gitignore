@@ -3,3 +3,8 @@ __pycache__
 keys.py
 log.txt
 webserver.py
+.replit
+replit.nix
+venv
+poetry.lock
+pyproject.toml
