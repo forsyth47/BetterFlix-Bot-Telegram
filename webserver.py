@@ -8,7 +8,7 @@ app = Flask('')
 @app.route('/')
 def home():
 
-  return "I'm alive"
+  return "BOT STARTED!"
 
 
 def run():

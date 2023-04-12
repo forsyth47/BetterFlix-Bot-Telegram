@@ -2,7 +2,6 @@ __pycache__
 .cache
 keys.py
 log.txt
-webserver.py
 .replit
 replit.nix
 venv

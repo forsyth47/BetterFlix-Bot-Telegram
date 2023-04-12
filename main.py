@@ -1,45 +1,32 @@
-#pip install python-telegram-bot==13.15 flask pytz
-#==================================IMPORTS & API==================================
 import os
 import inspect
 import json
 import subprocess
 import urllib.request
 from datetime import datetime
-import requests
-import pytz
-from webserver import keep_alive
 import keys
+import pytz
+import requests
+from webserver import keep_alive
 from telegram import *
 from telegram.ext import *
 
-apiurl = "https://api.consumet.org"
-#apiurl = "https://api.animxeast.eu.org"
-#apiurl = "https://c.delusionz.xyz"
-#apiurl = "https://api.haikei.xyz"
-#==================================IMPORTS & API END==================================
-
-def howtouse(update, context):
-  global ufid
-  ufid = inspect.stack()[0][3]
-  linuxbutton = InlineKeyboardButton('Linux', callback_data="1")
-  windowsbutton = InlineKeyboardButton('Windows', callback_data="2")
-  androidbutton = InlineKeyboardButton('Android', callback_data="3")
-  browserbutton = InlineKeyboardButton('Browser', callback_data="4")
-  replymarkup = InlineKeyboardMarkup([[linuxbutton, windowsbutton],[androidbutton, browserbutton]])
-  context.bot.send_message(update.message.chat_id, "Select your device: ", ReplyMarkup=replymarkup)
+apiurl = keys.apiurl
 
 
 #==================================COMMANDS==================================
 
-def start_command(update, context):
+def createjsoninfo():
   cache_dir = os.path.join(".cache", "Betterflix")
   if not os.path.exists(cache_dir):
     os.makedirs(cache_dir)
   data_file = os.path.join(cache_dir, f"{update.message.chat_id}.json")
-  if not os.path.exists(data_file):
+  if not os.path.exists(data_file) or len(str((subprocess.check_output("cat "+data_file, shell=True)).decode("utf-8")))==0:
     with open(data_file, "w") as f:
-      json.dump({"FirstName":update.message.chat.first_name, "chat_id":update.message.chat_id, "lastseenurl": "https://api.haikei.xyz/movies/flixhq/watch?episodeId=30784&mediaId=tv/watch-adventure-time-39381&server=upcloud", "server":"upcloud", "sub_lang": "English", "lastseenid": "30784", "lastseeneptitle": "Eps 24: What Have You Done?"}, f, indent=4)
+      json.dump({"FirstName":update.message.chat.first_name, "chat_id":update.message.chat_id, "lastseenurl": f"{apiurl} + /movies/flixhq/watch?episodeId=255412&mediaId=tv/watch-tom-and-jerry-tales-37606&server=upcloud", "server":"upcloud", "lastseenid": "255412", "lastseeneptitle": "Eps 1: Tiger Cat / Feeding Time / Polar Peril", "lastseenepno": 1}, f, indent=4)
+
+def start_command(update, context):
+  createjsoninfo()
   update.message.reply_text("Enter Movie/TVSeries name: ")
 
 def help_command(update, context):
@@ -60,7 +47,7 @@ def command(update, context):
     else:
       context.bot.send_message(chat_id, "*Send a UNIX/Windows machine command in this format:* \n \n       `/command \\<Your command here\\!\\>` \n \n*Example: '`/command tail log\\.txt`' \n\\(Grabs log\\.txt contexts for UNIX machines\\)*", parse_mode='MarkdownV2')
   else:
-    context.bot.send_message(chat_id, "You do not have the permission to use this command!")
+    context.bot.send_message(chat_id, "Sorry! Only the owner has permission to use this command!\n\n <b>Host your own bot to use this command :D</b>", parse_mode="html", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("Host your own bot! 🤖", url='https://github.com/forsyth47/telegram-betterflix-bot')]]))
 
 def changeserver(update, context):
   global ufid
@@ -81,8 +68,8 @@ def next(update, context):
     if episode["id"] == str(userinfo["lastseenid"]):
       if i + 1 < len(data["episodes"]):
         next_episode = data["episodes"][i+1]
-        newurl = apiurl + "/movies/flixhq/watch?episodeId=" + next_episode["id"] + "&" + userinfo['lastseenurl'].split('&')[1]
-        context.bot.send_photo(chat_id, data['cover'], caption=f'<b>Title: </b><code>{data["title"]}</code> \n<b>Data type: </b>{data["type"]} \n<b>Duration: </b>{data["duration"]} \n<b>Episode: </b>{next_episode["title"]}', parse_mode="html")
+        newurl = apiurl + "/movies/flixhq/watch?episodeId=" + next_episode["id"] + "&" + userinfo['lastseenurl'].split('&')[1] + f"&server={userinfo['server']}"
+        context.bot.send_photo(chat_id, data['cover'], caption=f'<b>Title: </b><code>{data["title"]}</code> \n<b>Data type: </b>{data["type"]} \n<b>Duration: </b>{data["duration"]} \n<b>Episode: </b>{int(userinfo["lastseenepno"]) + 1}. {next_episode["title"]}', parse_mode="html")
         datalink = requests.get(newurl).json()
         sources = datalink['sources']
         msglink = [[InlineKeyboardButton(f"{s.get('quality', 'unknown')}p", url=s.get('url', ''))] for s in sources]
@@ -97,6 +84,7 @@ def next(update, context):
           writejson["lastseenurl"] = newurl
           writejson["lastseenid"] = next_episode["id"]
           writejson["lastseeneptitle"] = next_episode["title"]
+          writejson["lastseenepno"] = int(userinfo["lastseenepno"]) + 1
           f.seek(0)
           json.dump(writejson, f, indent=4)
           f.truncate()
@@ -114,9 +102,9 @@ def continuewatching(update, context):
   chat_id=update.message.chat_id
   with open(os.path.join(".cache", "Betterflix", f"{chat_id}.json"), "r") as f:
       userinfo=json.load(f)
-  data = requests.get(apiurl + "/movies/flixhq/info?id=" + userinfo['lastseenurl'].split('&')[1][8:]).json()
-  context.bot.send_photo(chat_id, data['cover'], caption=f'<b>Title: </b><code>{data["title"]}</code> \n<b>Data type: </b>{data["type"]} \n<b>Duration: </b>{data["duration"]} \n<b>Episode: </b>{userinfo["lastseeneptitle"]}', parse_mode="html")
-  datalink = requests.get(userinfo['lastseenurl']).json()
+  data = requests.get(apiurl +  "/movies/flixhq/info?id=" + userinfo['lastseenurl'].split('&')[1][8:]).json()
+  context.bot.send_photo(chat_id, data['cover'], caption=f'<b>Title: </b><code>{data["title"]}</code> \n<b>Data type: </b>{data["type"]} \n<b>Duration: </b>{data["duration"]} \n<b>Episode: </b>{userinfo["lastseenepno"]}. {userinfo["lastseeneptitle"]}', parse_mode="html")
+  datalink = requests.get(userinfo['lastseenurl'].replace('&server=upcloud', '') + userinfo['server']).json()
   sources = datalink['sources']
   msglink = [[InlineKeyboardButton(f"{s.get('quality', 'unknown')}p", url=s.get('url', ''))] for s in sources]
   context.bot.send_message(chat_id, text="<code><b>Spread Love 💛</b></code>", reply_markup=InlineKeyboardMarkup(msglink), parse_mode="html")
@@ -132,6 +120,7 @@ def continuewatching(update, context):
 #==================================COMMANDS-END==================================
 
 
+
 #==================================SEARCH-MOVIE-SHOW==================================
 
 def search(update, context):
@@ -145,13 +134,7 @@ def search(update, context):
   print(logs)
   with open("log.txt", "a+") as fileout:
     fileout.write(f"{logs}\n")
-  cache_dir = os.path.join(".cache", "Betterflix")
-  if not os.path.exists(cache_dir):
-    os.makedirs(cache_dir)
-  data_file = os.path.join(cache_dir, f"{update.message.chat_id}.json")
-  if not os.path.exists(data_file):
-    with open(data_file, "w") as f:
-      json.dump({"FirstName":update.message.chat.first_name, "chat_id":update.message.chat_id, "lastseenurl": "https://api.haikei.xyz/movies/flixhq/watch?episodeId=30784&mediaId=tv/watch-adventure-time-39381&server=upcloud", "server":"upcloud", "sub_lang": "English", "lastseenid": "30784", "lastseeneptitle": "Eps 24: What Have You Done?"}, f, indent=4)
+  createjsoninfo()
   ufid = inspect.stack()[0][3]
   chat_id = update.message.chat_id
   requestsearch=update.message
@@ -181,12 +164,27 @@ def cep(update, context):
     responsecep = requests.get(apiurl + "/movies/flixhq/info?id=movie/" + idsearch[6:])
   dataid = datacep = responsecep.json()
   #print(json.dumps(dataid, indent=4))
-  context.bot.send_photo(chat_id, dataid["cover"], caption=f'<b>Title: </b><code>{dataid["title"]}</code> \n<b>Plot summary: </b>{dataid["description"][9:]} \n<b>Data type: </b>{dataid["type"]} \n<b>Released on: </b>{dataid["releaseDate"]} \n<b>Production: </b><code>{dataid["production"]}</code> \n<b>Duration: </b>{dataid["duration"]} \n<b>IMDb Rating: </b>{dataid["rating"]}', parse_mode="html")
+  context.bot.send_photo(chat_id, dataid["cover"], caption=f'<b>Title: </b><code>{dataid["title"]}</code> \n<b>Plot summary: </b>{dataid["description"][9:]} \n<b>Total Episodes: </b> {len(datacep["episodes"])} \n<b>Data type: </b>{dataid["type"]} \n<b>Released on: </b>{dataid["releaseDate"]} \n<b>Production: </b><code>{dataid["production"]}</code> \n<b>Duration: </b>{dataid["duration"]} \n<b>IMDb Rating: </b>{dataid["rating"]}', parse_mode="html")
+
+  send_pagination(update, context, 1)
+
+def send_pagination(update, context, page):
+  global udid
+  global messagecep
+  ufid = inspect.stack()[0][3]
   keyboard = []
-  for i, tempcep in enumerate(datacep['episodes']):
-    keyboard.append([InlineKeyboardButton(f"{i + 1}. {tempcep['title']}", callback_data=f"{i + 1}")])
-  keyboard.append([InlineKeyboardButton("> EXIT", callback_data="exit")])
-  messagecep = context.bot.send_message(chat_id, text="Select the desired episode: ", reply_markup=InlineKeyboardMarkup(keyboard))
+  STEP = 97
+  start_index = (page - 1) * STEP
+  end_index = min(start_index + STEP, len(datacep['episodes']))
+  for i in range(start_index, end_index):
+    tempcep = datacep['episodes'][i]
+    keyboard.append([InlineKeyboardButton(f"{i+1}. {tempcep['title']}", callback_data=f"{i + 1}")])
+  if page > 1:
+    keyboard.append([InlineKeyboardButton("◀️ PREVIOUS", callback_data="888")])
+  if end_index < len(datacep['episodes']):
+    keyboard.append([InlineKeyboardButton("NEXT ▶️", callback_data="999")])
+  keyboard.append([InlineKeyboardButton(f"     > EXIT <     ", callback_data="exit")])
+  messagecep = context.bot.send_message(chat_id, text=f"Page {page}", reply_markup=InlineKeyboardMarkup(keyboard))
 
 #==================================Choosing-EPisode-END==================================
 
@@ -218,6 +216,11 @@ def link(update, context):
 
 #==================================SEARCH-MOVIE-SHOW-END==================================
 
+
+# Log errors
+def error(update, context):
+  print ((datetime.now(pytz.timezone("Asia/Kolkata"))).strftime("[%d/%m/%Y %H:%M:%S] "), f'Update {update} caused error {context.error}')
+
 #==================================CALLBACKQUERYBUTTON==================================
 
 def Button(update, context):
@@ -226,11 +229,16 @@ def Button(update, context):
   global idcep
   global eptitlecep
   global idcserver
-  data = update.callback_query.data
+  query = update.callback_query
+  data = query.data
   if data == "exit":
     context.bot.answerCallbackQuery(callback_query_id=update.callback_query.id, text="Exited")
     update.callback_query.edit_message_reply_markup(None)
-    return
+    if ufid == "search":
+      context.bot.delete_message(chat_id, message_id=messagesearch.message_id)
+    elif ufid == "cep":
+      context.bot.delete_message(chat_id, message_id=messagecep.message_id)
+    return ("Make Another Search: ")
   buttoncallback = int(data)
   context.bot.answerCallbackQuery(callback_query_id=update.callback_query.id, text="Selected")
   update.callback_query.edit_message_reply_markup(None)
@@ -239,26 +247,44 @@ def Button(update, context):
     context.bot.delete_message(chat_id, message_id=messagesearch.message_id)
     cep(update, context)
   elif ufid == "cep":
-    idcep = datacep['episodes'][buttoncallback - 1]['id']
-    eptitlecep = datacep['episodes'][buttoncallback - 1]['title']
-    context.bot.delete_message(chat_id, message_id=messagecep.message_id)
-    link(update, context)
+    if buttoncallback == 888:
+        page = int(query.message.text.split()[-1]) - 1
+        query.answer()
+        context.bot.delete_message(chat_id, message_id=messagecep.message_id)
+        send_pagination(update, context, page)
+    elif buttoncallback == 999:
+        page = int(query.message.text.split()[-1]) + 1
+        query.answer()
+        context.bot.delete_message(chat_id, message_id=messagecep.message_id)
+        send_pagination(update, context, page)
+    else:
+      idcep = datacep['episodes'][buttoncallback - 1]['id']
+      eptitlecep = datacep['episodes'][buttoncallback - 1]['title']
+      with open(os.path.join(os.path.join(".cache", "Betterflix"), f"{chat_id}.json"), "r+") as f:
+          writejson = json.load(f)
+          writejson["lastseenepno"] = buttoncallback
+          f.seek(0)
+          json.dump(writejson, f, indent=4)
+          f.truncate()
+      context.bot.delete_message(chat_id, message_id=messagecep.message_id)
+      link(update, context)
   elif ufid=="changeserver":
-    with open(os.path.join(os.path.join(".cache", "Betterflix"), f"{chat_id}.json"), "w") as f:
       if buttoncallback==1:
         with open(os.path.join(os.path.join(".cache", "Betterflix"), f"{chat_id}.json"), "r+") as f:
-          json.load(f)["server"] = "upcloud"
+          writejson = json.load(f)
+          writejson["server"] = "upcloud"
           f.seek(0)
-          json.dump(data, f, indent=4)
+          json.dump(writejson, f, indent=4)
           f.truncate()
       elif buttoncallback==2:
         with open(os.path.join(os.path.join(".cache", "Betterflix"), f"{chat_id}.json"), "r+") as f:
-          json.load(f)["server"] = "vidcloud"
+          writejson = json.load(f)
+          writejson["server"] = "vidcloud"
           f.seek(0)
-          json.dump(data, f, indent=4)
+          json.dump(writejson, f, indent=4)
           f.truncate()
-    context.bot.delete_message(chat_id, message_id=messagechangeserver.message_id)
-    context.bot.send_message(chat_id, "Preference have been saved!")
+      context.bot.delete_message(chat_id, message_id=messagechangeserver.message_id)
+      context.bot.send_message(chat_id, "Preference have been saved!")
   elif ufid == "howtouse":
     if data == 1:
       context.bot.send_message(update.message.chat_id, "For linux: ")
@@ -268,14 +294,6 @@ def Button(update, context):
     
 #==================================CALLBACKQUERYBUTTON-END==================================
 
-#================================== OTHER GENERAL STUFF ==================================
-
-# Log errors
-def error(update, context):
-  print ((datetime.now(pytz.timezone("Asia/Kolkata"))).strftime("[%d/%m/%Y %H:%M:%S] "), f'Update {update} caused error {context.error}')
-
-
-#================================== OTHER GENERAL STUFF END ==================================
 
 #================================== STARTING THE PROGRAM ==================================
 if __name__ == '__main__':
