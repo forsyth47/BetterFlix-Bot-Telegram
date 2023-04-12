@@ -16,17 +16,17 @@ apiurl = keys.apiurl
 
 #==================================COMMANDS==================================
 
-def createjsoninfo():
+def createjsoninfo(update):
   cache_dir = os.path.join(".cache", "Betterflix")
   if not os.path.exists(cache_dir):
     os.makedirs(cache_dir)
   data_file = os.path.join(cache_dir, f"{update.message.chat_id}.json")
   if not os.path.exists(data_file) or len(str((subprocess.check_output("cat "+data_file, shell=True)).decode("utf-8")))==0:
     with open(data_file, "w") as f:
-      json.dump({"FirstName":update.message.chat.first_name, "chat_id":update.message.chat_id, "lastseenurl": f"{apiurl} + /movies/flixhq/watch?episodeId=255412&mediaId=tv/watch-tom-and-jerry-tales-37606&server=upcloud", "server":"upcloud", "lastseenid": "255412", "lastseeneptitle": "Eps 1: Tiger Cat / Feeding Time / Polar Peril", "lastseenepno": 1}, f, indent=4)
+      json.dump({"FirstName":update.message.chat.first_name, "chat_id":update.message.chat_id, "lastseenurl": f"{apiurl}/movies/flixhq/watch?episodeId=255412&mediaId=tv/watch-tom-and-jerry-tales-37606&server=upcloud", "server":"upcloud", "lastseenid": "255412", "lastseeneptitle": "Eps 1: Tiger Cat / Feeding Time / Polar Peril", "lastseenepno": 1}, f, indent=4)
 
 def start_command(update, context):
-  createjsoninfo()
+  createjsoninfo(update)
   update.message.reply_text("Enter Movie/TVSeries name: ")
 
 def help_command(update, context):
@@ -41,11 +41,11 @@ def mpv(update, context):
 def command(update, context):
   chat_id = update.message.chat_id
   if str(update.message.chat.username).lower() == str(keys.admin_username).lower():
-    inputtext=str(update.message.text)[8:]
+    inputtext=str(update.message.text)[3:]
     if len(inputtext) != 0:
         context.bot.send_message(chat_id, text=(subprocess.check_output(inputtext, shell=True)).decode("utf-8"))
     else:
-      context.bot.send_message(chat_id, "*Send a UNIX/Windows machine command in this format:* \n \n       `/command \\<Your command here\\!\\>` \n \n*Example: '`/command tail log\\.txt`' \n\\(Grabs log\\.txt contexts for UNIX machines\\)*", parse_mode='MarkdownV2')
+      context.bot.send_message(chat_id, "*Send a UNIX/Windows machine command in this format:* \n \n       `/c \\<Your command here\\!\\>` \n \n*Example: '`/c tail log\\.txt`' \n\\(Grabs log\\.txt contexts for UNIX machines\\)*", parse_mode='MarkdownV2')
   else:
     context.bot.send_message(chat_id, "Sorry! Only the owner has permission to use this command!\n\n <b>Host your own bot to use this command :D</b>", parse_mode="html", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("Host your own bot! 🤖", url='https://github.com/forsyth47/telegram-betterflix-bot')]]))
 
@@ -104,7 +104,7 @@ def continuewatching(update, context):
       userinfo=json.load(f)
   data = requests.get(apiurl +  "/movies/flixhq/info?id=" + userinfo['lastseenurl'].split('&')[1][8:]).json()
   context.bot.send_photo(chat_id, data['cover'], caption=f'<b>Title: </b><code>{data["title"]}</code> \n<b>Data type: </b>{data["type"]} \n<b>Duration: </b>{data["duration"]} \n<b>Episode: </b>{userinfo["lastseenepno"]}. {userinfo["lastseeneptitle"]}', parse_mode="html")
-  datalink = requests.get(userinfo['lastseenurl'].replace('&server=upcloud', '') + userinfo['server']).json()
+  datalink = requests.get(userinfo['lastseenurl'].replace('&server=upcloud', '') +f"&server={userinfo['server']}").json()
   sources = datalink['sources']
   msglink = [[InlineKeyboardButton(f"{s.get('quality', 'unknown')}p", url=s.get('url', ''))] for s in sources]
   context.bot.send_message(chat_id, text="<code><b>Spread Love 💛</b></code>", reply_markup=InlineKeyboardMarkup(msglink), parse_mode="html")
@@ -134,7 +134,7 @@ def search(update, context):
   print(logs)
   with open("log.txt", "a+") as fileout:
     fileout.write(f"{logs}\n")
-  createjsoninfo()
+  createjsoninfo(update)
   ufid = inspect.stack()[0][3]
   chat_id = update.message.chat_id
   requestsearch=update.message
@@ -306,9 +306,9 @@ if __name__ == '__main__':
   #dp.add_handler(CommandHandler('name', name))
   dp.add_handler(CommandHandler('start', start_command))
   dp.add_handler(CommandHandler('help', help_command))
-  dp.add_handler(CommandHandler('command', command))
+  dp.add_handler(CommandHandler('c', command))
   dp.add_handler(CommandHandler('mpv', mpv))
-  dp.add_handler(CommandHandler('server', changeserver))
+  dp.add_handler(CommandHandler('source', changeserver))
   dp.add_handler(CommandHandler('next', next))
   dp.add_handler(CommandHandler('continue', continuewatching))
 
