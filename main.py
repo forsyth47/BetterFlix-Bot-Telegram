@@ -4,12 +4,15 @@ import json
 import subprocess
 import urllib.request
 from datetime import datetime
+import time
 import keys
 import pytz
 import requests
+import time
 from webserver import keep_alive
 from telegram import *
 from telegram.ext import *
+from gitnotifier import *
 
 apiurl = keys.apiurl
 
@@ -57,7 +60,7 @@ def changeserver(update, context):
   chat_id=update.message.chat_id
   with open(os.path.join(".cache", "Betterflix", f"{chat_id}.json"), "r") as f:
       userinfo=json.load(f)
-  messagechangeserver=context.bot.send_message(chat_id, text=f"Default: [UPCLOUD] \nCurrent selection: <code>{userinfo['server']}</code> \nChange the server if video doesn't play \nSelect the Server :", parse_mode="html", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("UPCLOUD", callback_data='1')], [InlineKeyboardButton("VIDCLOUD", callback_data='2')]]))
+  messagechangeserver=context.bot.send_message(chat_id, text=f"Current selection: <code>{userinfo['server']}</code> \nSelect the Server :", parse_mode="html", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("Default", callback_data='1')], [InlineKeyboardButton("UPCLOUD", callback_data='2')], [InlineKeyboardButton("VIDCLOUD", callback_data='3')]]))
 
 def next(update, context):
   chat_id=update.message.chat_id
@@ -104,7 +107,8 @@ def continuewatching(update, context):
       userinfo=json.load(f)
   data = requests.get(apiurl +  "/movies/flixhq/info?id=" + userinfo['lastseenurl'].split('&')[1][8:]).json()
   context.bot.send_photo(chat_id, data['cover'], caption=f'<b>Title: </b><code>{data["title"]}</code> \n<b>Data type: </b>{data["type"]} \n<b>Duration: </b>{data["duration"]} \n<b>Episode: </b>{userinfo["lastseenepno"]}. {userinfo["lastseeneptitle"]}', parse_mode="html")
-  datalink = requests.get(userinfo['lastseenurl'].replace('&server=upcloud', '') +f"&server={userinfo['server']}").json()
+  url = apiurl + "/movies/flixhq/watch?" + (userinfo['lastseenurl'].split("?")[1]).split('&')[-3] + "&" +(userinfo['lastseenurl'].split("?")[1]).split('&')[-2] + f'&server={userinfo["server"]}'
+  datalink = requests.get(url).json()
   sources = datalink['sources']
   msglink = [[InlineKeyboardButton(f"{s.get('quality', 'unknown')}p", url=s.get('url', ''))] for s in sources]
   context.bot.send_message(chat_id, text="<code><b>Spread Love 💛</b></code>", reply_markup=InlineKeyboardMarkup(msglink), parse_mode="html")
@@ -183,8 +187,8 @@ def send_pagination(update, context, page):
     keyboard.append([InlineKeyboardButton("◀️ PREVIOUS", callback_data="888")])
   if end_index < len(datacep['episodes']):
     keyboard.append([InlineKeyboardButton("NEXT ▶️", callback_data="999")])
-  keyboard.append([InlineKeyboardButton(f"     > EXIT <     ", callback_data="exit")])
-  messagecep = context.bot.send_message(chat_id, text=f"Page {page}", reply_markup=InlineKeyboardMarkup(keyboard))
+  keyboard.append([InlineKeyboardButton(f"> EXIT <", callback_data="exit")])
+  messagecep = context.bot.send_message(chat_id, text=f"Select the desired Episode\n<b>Current Page: </b>{page}", reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="html")
 
 #==================================Choosing-EPisode-END==================================
 
@@ -215,6 +219,7 @@ def link(update, context):
 
 
 #==================================SEARCH-MOVIE-SHOW-END==================================
+
 
 
 # Log errors
@@ -323,6 +328,10 @@ if __name__ == '__main__':
 
   # Run the bot
   updater.start_polling(1.0)
+  
+  while True:
+    check_for_commits()
+    time.sleep(10) # Sleep for an hour before checking again
   updater.idle()
 
 #================================== END OF THW SCRIPT ==================================
