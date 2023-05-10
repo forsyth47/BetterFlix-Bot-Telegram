@@ -110,16 +110,45 @@ def send_pagination(update, context, page):
 def link(update, context):
   data = requests.get(apiurl + "/movies/flixhq/watch", params={"episodeId": idcep, "mediaId": idsearch, "server": userinfo["server"]}).json()
   #print(json.dumps(data, indent=4))
-  sources = data['sources']
-  msglink = [[InlineKeyboardButton(f"{s.get('quality', 'unknown')}p", url=s.get('url', ''))] for s in sources]
+  cachecre()
+  print('CACHE CREATED')
+  english_subtitles = '\n'.join([f'#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID="subs",NAME="{s["lang"]}",DEFAULT=NO,AUTOSELECT=NO,FORCED=NO,URI="{s["url"]}"]' for s in data['subtitles'] if s['lang'].startswith('English')])
+  print('SUBTITLE DONE')
+  nshortjson = {'data': []}
+  for s in data['sources']:
+    response = requests.get(s['url'])
+    m3u8_content = response.content.decode('utf-8')
+    newurl = s['url'].rsplit('/', 1)[0] + '/'
+    new_content = ''
+    for line in m3u8_content.split('\n'):
+      if line.startswith('#EXTM3U'):
+        new_content += line + '\n' + f"#EXT-X-STREAM-INF:NAME=\'{dataid['title'].replace(' ', '-')}-{idcep}-[{s['quality']}]\'" + '\n'
+      elif line.startswith('seg'):
+        new_content += newurl + line + '\n'
+      else:
+        new_content += line + '\n'
+    print('NEW CONTENT MADE!')
+    new_content += english_subtitles + '\n'
+    print('SUBTITLE APPENDED')
+    with open(f"cache/{dataid['title'].replace(' ', '-')}-{idcep}-[{s['quality']}].m3u8", 'w') as f:
+      f.write(new_content)
+    print('NEW_CONTENT + SUBTITLE WRITTEN')
+    nsurl = subprocess.check_output(f"cd cache && curl -F'file=@{dataid['title'].replace(' ', '-')}-{idcep}-[{s['quality']}].m3u8' https://ttm.sh", shell=True).decode("utf-8")
+    print('CURLLING DONE')
+    nsdata = {'url': nsurl, 'quality': s['quality']}
+    print('NEW DATA SET MADE')
+    nshortjson['data'].append(nsdata)
+    print('NEW DATASET APPENDED')
+    
+  #msglink = [[InlineKeyboardButton(f"{s.get('quality', 'unknown')}p", url=s.get('url', ''))] for s in nshorturl['data']]
+  print('>>NEW DATASET MADE FINAL')
+  msglink = [[InlineKeyboardButton(f"{s['quality']}p", url=s['url'])] for s in nshortjson['data']]
+  print('INLINEKEYBOARD BUTTON MADE')
   quotejson=requests.get('https://api.quotable.io/random').json()
+  print('QUOTE GRABBED')
   context.bot.send_message(chat_id, text=f"<b>{quotejson['content']}</b>\n~<code>{quotejson['author']}</code>", reply_markup=InlineKeyboardMarkup(msglink), parse_mode="html")
-  english_subtitles = '\n'.join([f"{s['lang']}: {s['url']}" for s in data['subtitles'] if s['lang'].startswith('English')])
-  if len(english_subtitles) == 0:
-    pass
-  else:
-    context.bot.send_message(chat_id, text=f"Subtitles links to add: \n{english_subtitles}")
-
+  print('LINKS SENT WITH BTTONS AND QUOTES')
+  
   with open(os.path.join(os.path.join(".cache", "Betterflix"), f"{chat_id}.json"), "r+") as f:
     writejson = json.load(f)
     writejson["lastseenurl"] = apiurl + f"/movies/flixhq/watch?episodeId={idcep}&mediaId={idsearch}&server={userinfo['server']}"

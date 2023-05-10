@@ -26,7 +26,6 @@ def check_for_commits():
 			last_commit = json.load(f)
         
     
-
 	if last_commit['sha'] != latest_commit['sha']:
 		with open('data/commit_info.json', 'w') as f:
 			json.dump(latest_commit, f, indent=4)
@@ -36,19 +35,15 @@ def check_for_commits():
 		print(f"Latest commit timestamp: {latest_commit['commit']['author']['date']}")
 		print(f"Latest commit sha: {latest_commit['sha']}")
 		bot = telegram.Bot(token=os.environ['botkey'])
-
-		numbers = []
-		with open('log.txt', 'r') as file:
-		  for line in file:
-		    user_id = int(line.split(',')[-1].split(')')[0].split(' ')[1])
-		    numbers.append(int(user_id))
-		unique_numbers = list(set(numbers))
-
-		for u_chat_id in unique_numbers:
+		directory = '.cache/Betterflix/'
+		userids = []
+		for filename in os.listdir(directory):
+			if os.path.isfile(os.path.join(directory, filename)):
+				id = int(filename.split('.')[0])
+				userids.append(id)
+		for u_chat_id in userids:
 			try:
-				text = latest_commit['commit']['message']
-				title, desc = text.split('\n\n')
-				bot.send_message(chat_id=u_chat_id, text=f"<b>Commit message [Changelogs]</b> \n<code>{title}</code>\n\n<b><b>{desc}</b></b>\n\n<b>Timestamp: </b>{latest_commit['commit']['author']['date']}", parse_mode='html')
+				bot.send_message(chat_id=u_chat_id, text=f"<b>Commit message [Changelogs]</b> \n<code>{latest_commit['commit']['message']}</code>\n\n<a href='{latest_commit['html_url']}'>#{latest_commit['sha'][:7]}</a>\n<b>Timestamp: </b>{latest_commit['commit']['author']['date']}", parse_mode='html')
 			except:
 				print(f"User {u_chat_id} has blocked the bot, message not sent.")
 				continue
